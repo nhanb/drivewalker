@@ -1,13 +1,13 @@
 all: server client.js
 
-client.js: client.nim
-	nim js client.nim
+client.js: src/client.nim
+	nim js -o:client.js src/client.nim
 
-server: server.nim
-	nim c server.nim
+server: src/server.nim
+	nim c -o:server src/server.nim
 
 deps: readman.nimble
 	nimble install -d
 
 clean:
-	rm -f client.js
+	rm -f client.js server
