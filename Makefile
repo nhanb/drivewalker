@@ -4,7 +4,7 @@ client.js: src/client.nim
 	nim js -o:client.js src/client.nim
 
 server: src/server.nim
-	nim c -o:server src/server.nim
+	nim c -d:ssl -o:server src/server.nim
 
 deps: readman.nimble
 	nimble install -d

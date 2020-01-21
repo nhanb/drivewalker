@@ -3,35 +3,24 @@ include karax / [kajax]
 import karax / kdom
 import api
 
-var chapter = Chapter(
-  name: kstring"",
-  pages: @[]
-)
-
 
 proc createDom(): VNode =
   result = buildHtml(tdiv):
-    button:
-      text "GET chapter"
-      proc onclick(ev: Event; n: VNode) =
-        ajaxPost(
-          "/api",
-          headers = @[],
-          data = """
-          {
-            "jsonrpc": "2.0",
-            "method": "get-chapter",
-            "params": {
-              "id": "84749"
+    tdiv(id = "main"):
+      button:
+        text "GET credentials"
+        proc onclick(ev: Event; n: VNode) =
+          ajaxPost(
+            "/api",
+            headers = @[],
+            data = """
+            {
+              "jsonrpc": "2.0",
+              "method": "prepare_credentials"
             }
-          }
-          """,
-          cont = proc (httpStatus: int; response: cstring) =
-          chapter = fromJson[Chapter](response)
-          kdom.document.title = chapter.name
-        )
-    for url in chapter.pages:
-      tdiv:
-        img(src = url)
+            """,
+            cont = proc (httpStatus: int; response: cstring) =
+            kdom.document.title = "Done"
+          )
 
 setRenderer createDom

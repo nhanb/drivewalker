@@ -1,6 +1,5 @@
-import asynchttpserver, asyncdispatch, asyncfile, json
-import karax / [kbase]
-import api
+import asynchttpserver, asyncdispatch, asyncfile, json, options, tables
+import gdrive
 
 
 proc serveRpc(req: Request) {.async.} =
@@ -11,24 +10,16 @@ proc serveRpc(req: Request) {.async.} =
   try:
     var bodyJson = parseJson(req.body)
     let rpcMethod = bodyJson["method"].getStr()
-    let rpcParams = bodyJson["params"]
+    #let rpcParams = bodyJson["params"]
 
     case rpcMethod
-    of "get-chapter":
-      let chapterId = to(rpcParams, GetChapterRequest).id
-      if chapterId == "84749":
+    of "prepare_credentials":
+      let credsOption = loadCredentials()
+      if credsOption.isSome:
         let headers = newHttpHeaders([("Content-Type", "application/json")])
-        let chapter = Chapter(
-          name: kstring"Kaiman",
-          pages: @[
-            kstring"https://s2.mangadex.org/data/a02dc29634d4c2b1afd7ed27a2cb556a/x1.jpg",
-            kstring"https://s2.mangadex.org/data/a02dc29634d4c2b1afd7ed27a2cb556a/x2.jpg",
-            kstring"https://s2.mangadex.org/data/a02dc29634d4c2b1afd7ed27a2cb556a/x3.jpg",
-          ]
-        )
-        await req.respond(Http200, $(%*chapter), headers)
+        await req.respond(Http200, $(%*credsOption.get()), headers)
       else:
-        await req.respond(Http404, "Chapter not found")
+        await req.respond(Http500, "Failed to load credentials")
 
     else:
       await req.respond(Http400, "Invalid RPC method")
@@ -36,22 +27,26 @@ proc serveRpc(req: Request) {.async.} =
   except JsonParsingError:
     await req.respond(Http400, "Malformed RPC request payload")
 
-
-var server = newAsyncHttpServer()
-
 proc cb(req: Request) {.async.} =
-  case req.url.path
-  # serve static files:
-  of "/client.js":
+  let path = req.url.path[1..^1]
+
+  const STATIC_FILES = {
+    "client.js": "text/javascript",
+    "client.css": "text/css",
+  }.toTable
+
+  if STATIC_FILES.hasKey(path):
     # TODO: I may want to inline everything into a single html file
-    var file = openAsync("client.js", fmRead)
+    var file = openAsync(path, fmRead)
     let data = await file.readAll()
     file.close()
-    let headers = newHttpHeaders([("Content-Type", "text/javascript")])
+    let headers = newHttpHeaders([("Content-Type", STATIC_FILES[path])])
     await req.respond(Http200, data, headers)
+    return
 
+  case path
   # json-rpc endpoint:
-  of "/api":
+  of "api":
     await serveRpc(req)
 
   else:
@@ -62,4 +57,7 @@ proc cb(req: Request) {.async.} =
     let headers = newHttpHeaders([("Content-Type", "text/html")])
     await req.respond(Http200, data, headers)
 
-waitFor server.serve(Port(8080), cb)
+
+if isMainModule:
+  var server = newAsyncHttpServer()
+  waitFor server.serve(port = Port(8080), callback = cb, address = "localhost")
